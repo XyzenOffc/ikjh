@@ -1,12 +1,17 @@
-const TelegramBot = require('node-telegram-bot-api');
 const fs = require('fs');
 const axios = require('axios');
+const TelegramBot = require('node-telegram-bot-api');
 
-// Token bot Telegram Anda
+// Token bot Telegram
 const token = '7361099428:AAHsbnKKUK_aYNsPZNX4BqMLPg3su79JG90';
+
+// ID owner
+const ownerId = 7257721467; // Ganti dengan ID Telegram Anda
+
+// Inisialisasi bot
 const bot = new TelegramBot(token, { polling: true });
 
-// Fungsi membaca sesi
+// Fungsi untuk membaca sesi
 function readSession() {
     try {
         return JSON.parse(fs.readFileSync('./database/aisesi.json', 'utf8'));
@@ -15,58 +20,54 @@ function readSession() {
     }
 }
 
-// Fungsi menulis sesi
+// Fungsi untuk menulis sesi
 function writeSession(data) {
     fs.writeFileSync('./database/aisesi.json', JSON.stringify(data, null, 2));
 }
 
-// Tangani perintah `/ai` dan `/openai`
-bot.onText(/\/(ai|openai) (.+)/, async (msg, match) => {
+// Handler pesan
+bot.on('message', async (msg) => {
     const chatId = msg.chat.id;
-    const text = match[2]; // Query dari user
-    let sessions = readSession();
-    let userSession = sessions[chatId] || "";
+    const text = msg.text;
 
-    if (!text) {
-        return bot.sendMessage(chatId, "Masukkan query!");
+    // Cek apakah pesan berasal dari owner
+    if (msg.from.id === ownerId) {
+        bot.sendMessage(chatId, "Siap, Tuan Xyzen! Pesan Anda sedang diproses...");
     }
 
+    // Jika tidak ada teks, jangan lakukan apa-apa
+    if (!text) return;
+
+    // Integrasi dengan API AI
     try {
+        let sessions = readSession();
+        let userSession = sessions[msg.from.id] || "";
         let question = userSession ? `${userSession}\n${text}` : text;
         const URL = "https://meitang.xyz/openai";
-
-        let { data } = await axios.get(URL, {
+        let { data } = await axios({
+            method: "GET",
+            url: URL,
             params: { text: question }
         });
 
         if (data.status) {
-            sessions[chatId] = `${question}\n${data.result}`;
+            sessions[msg.from.id] = `${question}\n${data.result}`;
             writeSession(sessions);
             bot.sendMessage(chatId, data.result);
         } else {
             bot.sendMessage(chatId, "Gagal mendapatkan respons dari API.");
         }
-    } catch (error) {
-        console.error(error);
-        bot.sendMessage(chatId, "Sesi sudah mencapai batas!\nKetik /resetsesi dan coba lagi.");
+    } catch (e) {
+        console.log(e);
+        bot.sendMessage(chatId, "Sesi sudah mencapai batas! Ketik /resetsesi dan coba lagi.");
     }
 });
 
-// Tangani perintah `/resetsesi`
+// Perintah untuk mereset sesi
 bot.onText(/\/resetsesi/, (msg) => {
     const chatId = msg.chat.id;
     let sessions = readSession();
-    delete sessions[chatId];
+    delete sessions[msg.from.id];
     writeSession(sessions);
     bot.sendMessage(chatId, "Sesi AI berhasil direset!");
 });
-
-// Buat folder `database` jika belum ada
-if (!fs.existsSync('./database')) {
-    fs.mkdirSync('./database');
-}
-
-// Buat file `aisesi.json` jika belum ada
-if (!fs.existsSync('./database/aisesi.json')) {
-    fs.writeFileSync('./database/aisesi.json', '{}');
-}
