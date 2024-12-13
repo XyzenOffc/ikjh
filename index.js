@@ -59,7 +59,7 @@ bot.on('message', async (msg) => {
     let sessions = readSession();
     let userSession = sessions[msg.from.id] || "";
     let question = userSession ? `${userSession}\n${text}` : text;
-    const URL = "https://meitang.xyz/openai";
+    const URL = "https://api.acaw.my.id/v2/gpt-logic?prompt=Your%20name%20is%20Acaw,%20And%20you%20are%20a%20virtual%20assistant,%20Remember%20You%20are%20Acaw!&q=hai";
     let { data } = await axios({
       method: "GET",
       url: URL,
